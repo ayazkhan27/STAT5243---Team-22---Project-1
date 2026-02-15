@@ -1,0 +1,9 @@
+fredapi
+pandas
+requests
+tqdm
+pyarrow
+numpy
+matplotlib
+seaborn
+vaderSentiment

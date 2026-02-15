@@ -1,0 +1,16 @@
+# Secrets — NEVER commit API keys
+secrets.json
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.env
+
+# Data outputs (optional — uncomment if datasets are too large for GitHub)
+# data/*.parquet
+# data/*.csv
+
+# OS
+.DS_Store
+Thumbs.db

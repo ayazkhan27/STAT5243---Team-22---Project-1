@@ -1,0 +1,95 @@
+Category,Count,Source,ACS_Year,Geography
+Total:,83816088,B15011_Degree_Field,2023,United States
+Total:!!Male:,39305778,B15011_Degree_Field,2023,United States
+Total:!!Male:!!25 to 39 years:,12490133,B15011_Degree_Field,2023,United States
+Total:!!Male:!!25 to 39 years:!!Science and Engineering,5889014,B15011_Degree_Field,2023,United States
+Total:!!Male:!!25 to 39 years:!!Science and Engineering Related Fields,732742,B15011_Degree_Field,2023,United States
+Total:!!Male:!!25 to 39 years:!!Business,2684903,B15011_Degree_Field,2023,United States
+Total:!!Male:!!25 to 39 years:!!Education,346227,B15011_Degree_Field,2023,United States
+"Total:!!Male:!!25 to 39 years:!!Arts, Humanities, and Other",2837247,B15011_Degree_Field,2023,United States
+Total:!!Male:!!40 to 64 years:,17580784,B15011_Degree_Field,2023,United States
+Total:!!Male:!!40 to 64 years:!!Science and Engineering,7673450,B15011_Degree_Field,2023,United States
+Total:!!Male:!!40 to 64 years:!!Science and Engineering Related Fields,1042395,B15011_Degree_Field,2023,United States
+Total:!!Male:!!40 to 64 years:!!Business,4333389,B15011_Degree_Field,2023,United States
+Total:!!Male:!!40 to 64 years:!!Education,778898,B15011_Degree_Field,2023,United States
+"Total:!!Male:!!40 to 64 years:!!Arts, Humanities, and Other",3752652,B15011_Degree_Field,2023,United States
+Total:!!Male:!!65 years and over:,9234861,B15011_Degree_Field,2023,United States
+Total:!!Male:!!65 years and over:!!Science and Engineering,4070440,B15011_Degree_Field,2023,United States
+Total:!!Male:!!65 years and over:!!Science and Engineering Related Fields,506629,B15011_Degree_Field,2023,United States
+Total:!!Male:!!65 years and over:!!Business,2108886,B15011_Degree_Field,2023,United States
+Total:!!Male:!!65 years and over:!!Education,889898,B15011_Degree_Field,2023,United States
+"Total:!!Male:!!65 years and over:!!Arts, Humanities, and Other",1659008,B15011_Degree_Field,2023,United States
+Total:!!Female:,44510310,B15011_Degree_Field,2023,United States
+Total:!!Female:!!25 to 39 years:,15208681,B15011_Degree_Field,2023,United States
+Total:!!Female:!!25 to 39 years:!!Science and Engineering,5151144,B15011_Degree_Field,2023,United States
+Total:!!Female:!!25 to 39 years:!!Science and Engineering Related Fields,2203681,B15011_Degree_Field,2023,United States
+Total:!!Female:!!25 to 39 years:!!Business,2448514,B15011_Degree_Field,2023,United States
+Total:!!Female:!!25 to 39 years:!!Education,1393736,B15011_Degree_Field,2023,United States
+"Total:!!Female:!!25 to 39 years:!!Arts, Humanities, and Other",4011606,B15011_Degree_Field,2023,United States
+Total:!!Female:!!40 to 64 years:,20144877,B15011_Degree_Field,2023,United States
+Total:!!Female:!!40 to 64 years:!!Science and Engineering,5578820,B15011_Degree_Field,2023,United States
+Total:!!Female:!!40 to 64 years:!!Science and Engineering Related Fields,2674896,B15011_Degree_Field,2023,United States
+Total:!!Female:!!40 to 64 years:!!Business,4220298,B15011_Degree_Field,2023,United States
+Total:!!Female:!!40 to 64 years:!!Education,2835761,B15011_Degree_Field,2023,United States
+"Total:!!Female:!!40 to 64 years:!!Arts, Humanities, and Other",4835102,B15011_Degree_Field,2023,United States
+Total:!!Female:!!65 years and over:,9156752,B15011_Degree_Field,2023,United States
+Total:!!Female:!!65 years and over:!!Science and Engineering,1912459,B15011_Degree_Field,2023,United States
+Total:!!Female:!!65 years and over:!!Science and Engineering Related Fields,1294544,B15011_Degree_Field,2023,United States
+Total:!!Female:!!65 years and over:!!Business,1088426,B15011_Degree_Field,2023,United States
+Total:!!Female:!!65 years and over:!!Education,2760429,B15011_Degree_Field,2023,United States
+"Total:!!Female:!!65 years and over:!!Arts, Humanities, and Other",2100894,B15011_Degree_Field,2023,United States
+Total:,164346993,C24030_Industry,2023,United States
+Total:!!Male:,86080816,C24030_Industry,2023,United States
+"Total:!!Male:!!Agriculture, forestry, fishing and hunting, and mining:",1997688,C24030_Industry,2023,United States
+"Total:!!Male:!!Agriculture, forestry, fishing and hunting, and mining:!!Agriculture, forestry, fishing and hunting",1446888,C24030_Industry,2023,United States
+"Total:!!Male:!!Agriculture, forestry, fishing and hunting, and mining:!!Mining, quarrying, and oil and gas extraction",550800,C24030_Industry,2023,United States
+Total:!!Male:!!Construction,10064145,C24030_Industry,2023,United States
+Total:!!Male:!!Manufacturing,11464958,C24030_Industry,2023,United States
+Total:!!Male:!!Wholesale trade,2302107,C24030_Industry,2023,United States
+Total:!!Male:!!Retail trade,9143567,C24030_Industry,2023,United States
+"Total:!!Male:!!Transportation and warehousing, and utilities:",7322599,C24030_Industry,2023,United States
+"Total:!!Male:!!Transportation and warehousing, and utilities:!!Transportation and warehousing",6213849,C24030_Industry,2023,United States
+"Total:!!Male:!!Transportation and warehousing, and utilities:!!Utilities",1108750,C24030_Industry,2023,United States
+Total:!!Male:!!Information,1833971,C24030_Industry,2023,United States
+"Total:!!Male:!!Finance and insurance, and real estate, and rental and leasing:",5103696,C24030_Industry,2023,United States
+"Total:!!Male:!!Finance and insurance, and real estate, and rental and leasing:!!Finance and insurance",3540502,C24030_Industry,2023,United States
+"Total:!!Male:!!Finance and insurance, and real estate, and rental and leasing:!!Real estate and rental and leasing",1563194,C24030_Industry,2023,United States
+"Total:!!Male:!!Professional, scientific, and management, and administrative, and waste management services:",11911156,C24030_Industry,2023,United States
+"Total:!!Male:!!Professional, scientific, and management, and administrative, and waste management services:!!Professional, scientific, and technical services",7700817,C24030_Industry,2023,United States
+"Total:!!Male:!!Professional, scientific, and management, and administrative, and waste management services:!!Management of companies and enterprises",82746,C24030_Industry,2023,United States
+"Total:!!Male:!!Professional, scientific, and management, and administrative, and waste management services:!!Administrative and support and waste management services",4127593,C24030_Industry,2023,United States
+"Total:!!Male:!!Educational services, and health care and social assistance:",10127348,C24030_Industry,2023,United States
+"Total:!!Male:!!Educational services, and health care and social assistance:!!Educational services",4892671,C24030_Industry,2023,United States
+"Total:!!Male:!!Educational services, and health care and social assistance:!!Health care and social assistance",5234677,C24030_Industry,2023,United States
+"Total:!!Male:!!Arts, entertainment, and recreation, and accommodation and food services:",7024757,C24030_Industry,2023,United States
+"Total:!!Male:!!Arts, entertainment, and recreation, and accommodation and food services:!!Arts, entertainment, and recreation",1959363,C24030_Industry,2023,United States
+"Total:!!Male:!!Arts, entertainment, and recreation, and accommodation and food services:!!Accommodation and food services",5065394,C24030_Industry,2023,United States
+"Total:!!Male:!!Other services, except public administration",3637910,C24030_Industry,2023,United States
+Total:!!Male:!!Public administration,4146914,C24030_Industry,2023,United States
+Total:!!Female:,78266177,C24030_Industry,2023,United States
+"Total:!!Female:!!Agriculture, forestry, fishing and hunting, and mining:",570440,C24030_Industry,2023,United States
+"Total:!!Female:!!Agriculture, forestry, fishing and hunting, and mining:!!Agriculture, forestry, fishing and hunting",484572,C24030_Industry,2023,United States
+"Total:!!Female:!!Agriculture, forestry, fishing and hunting, and mining:!!Mining, quarrying, and oil and gas extraction",85868,C24030_Industry,2023,United States
+Total:!!Female:!!Construction,1301361,C24030_Industry,2023,United States
+Total:!!Female:!!Manufacturing,4806968,C24030_Industry,2023,United States
+Total:!!Female:!!Wholesale trade,1038111,C24030_Industry,2023,United States
+Total:!!Female:!!Retail trade,8321921,C24030_Industry,2023,United States
+"Total:!!Female:!!Transportation and warehousing, and utilities:",2561923,C24030_Industry,2023,United States
+"Total:!!Female:!!Transportation and warehousing, and utilities:!!Transportation and warehousing",2226666,C24030_Industry,2023,United States
+"Total:!!Female:!!Transportation and warehousing, and utilities:!!Utilities",335257,C24030_Industry,2023,United States
+Total:!!Female:!!Information,1220422,C24030_Industry,2023,United States
+"Total:!!Female:!!Finance and insurance, and real estate, and rental and leasing:",5775107,C24030_Industry,2023,United States
+"Total:!!Female:!!Finance and insurance, and real estate, and rental and leasing:!!Finance and insurance",4345839,C24030_Industry,2023,United States
+"Total:!!Female:!!Finance and insurance, and real estate, and rental and leasing:!!Real estate and rental and leasing",1429268,C24030_Industry,2023,United States
+"Total:!!Female:!!Professional, scientific, and management, and administrative, and waste management services:",9087454,C24030_Industry,2023,United States
+"Total:!!Female:!!Professional, scientific, and management, and administrative, and waste management services:!!Professional, scientific, and technical services",6107912,C24030_Industry,2023,United States
+"Total:!!Female:!!Professional, scientific, and management, and administrative, and waste management services:!!Management of companies and enterprises",86697,C24030_Industry,2023,United States
+"Total:!!Female:!!Professional, scientific, and management, and administrative, and waste management services:!!Administrative and support and waste management services",2892845,C24030_Industry,2023,United States
+"Total:!!Female:!!Educational services, and health care and social assistance:",28434198,C24030_Industry,2023,United States
+"Total:!!Female:!!Educational services, and health care and social assistance:!!Educational services",10616859,C24030_Industry,2023,United States
+"Total:!!Female:!!Educational services, and health care and social assistance:!!Health care and social assistance",17817339,C24030_Industry,2023,United States
+"Total:!!Female:!!Arts, entertainment, and recreation, and accommodation and food services:",7468193,C24030_Industry,2023,United States
+"Total:!!Female:!!Arts, entertainment, and recreation, and accommodation and food services:!!Arts, entertainment, and recreation",1605379,C24030_Industry,2023,United States
+"Total:!!Female:!!Arts, entertainment, and recreation, and accommodation and food services:!!Accommodation and food services",5862814,C24030_Industry,2023,United States
+"Total:!!Female:!!Other services, except public administration",4194236,C24030_Industry,2023,United States
+Total:!!Female:!!Public administration,3485843,C24030_Industry,2023,United States
