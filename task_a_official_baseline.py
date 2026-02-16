@@ -15,7 +15,6 @@ Output  : data/df_official.csv
 """
 
 import os
-import sys
 import time
 import json
 import pandas as pd

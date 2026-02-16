@@ -1,13 +1,13 @@
 # The Reality Gap: Contrasting Official US Labor Statistics with Public Sentiment (2020–2026)
 
 > **STAT 5243 — Spring 2026 — Columbia University**
-> A graduate-level comparative study demonstrating that the official U-3 Unemployment Rate is an overly optimistic indicator that fails to capture the "silent recession" plaguing white-collar and entry-level labor markets.
+> A graduate-level comparative study examining the relationship between official U-3 Unemployment Rate and public sentiment indicators, revealing weak correlation with distress signals from white-collar and entry-level labor markets.
 
 ---
 
 ## 🎯 Hypothesis
 
-Official unemployment metrics (U-3) understate the true severity of labor market distress for **Entry-Level Workers (Ages 20–24)** and **Recent College Graduates**. We call this divergence the **"Reality Gap"** and measure it through three lenses:
+Official unemployment metrics (U-3) may not fully correlate with labor market distress indicators for **Entry-Level Workers (Ages 20–24)** and **Recent College Graduates**. We examine this potential divergence, termed the **"Reality Gap"**, through three lenses:
 
 1. **The Official Baseline** — Government statistics from the Federal Reserve (FRED)
 2. **The Demographic Context** — Census Bureau data revealing structural "Degree Mismatch"
@@ -31,7 +31,7 @@ The U6–U3 spread (measuring discouraged workers and involuntary part-timers ex
 
 ### Finding 4: Sentiment Is Deteriorating Over Time
 
-VADER compound scores show a **downward trend** from 2020 to 2026. Average monthly sentiment dropped from +0.3 to +0.7 (early 2020) to **0.0 to +0.1** (2024–2026). The percentage of negative posts stabilizes at a higher baseline (~35–45%) compared to earlier periods.
+VADER compound scores show a **downward trend** from 2020 to 2026. Average monthly sentiment declined from approximately **+0.3 to +0.7** (early 2020) to **0.0 to +0.1** (2024–2026). The percentage of negative posts stabilizes at a higher baseline (~35–45%) compared to earlier periods.
 
 ### Finding 5: Distress Is Broad-Based, Not Isolated
 
@@ -39,7 +39,7 @@ All four subreddits light up simultaneously from late 2023 onward. The five most
 
 ### Finding 6: Structural Degree–Job Mismatch Exists
 
-~7.5 million people aged 25–39 hold Science & Engineering degrees, but the matching employment sectors don't absorb them all. The largest hiring industries are healthcare and education services — not the STEM-adjacent industries these degrees target.
+Approximately 7.5 million people aged 25–39 hold Science & Engineering degrees, but the matching employment sectors don't absorb them all. The largest hiring industries are healthcare and education services — not the STEM-adjacent industries these degrees target. **Note: Census data represents a structural, cross-sectional snapshot and cannot be interpreted as temporal trends. These findings reflect aggregate patterns across the workforce, not changes over the 2020–2026 study period.**
 
 ### Finding 7: Two Regimes — Time-Colored Scatter Reveals Confound
 
@@ -56,7 +56,7 @@ Plotting U-3 vs. distress volume with **time-colored points** (Plot 7, left) rev
 
 ### Conclusion
 
-> The U-3 Unemployment Rate is failing as a measure of labor market health for entry-level and white-collar workers. From 2022–2026, while headline unemployment sits near historic lows, public distress has surged. The near-zero correlation between official rates and public sentiment (r ≈ 0.06), the persistent U6–U3 spread (~3.9pp), the deteriorating sentiment trajectory, and the structural degree–job mismatch all point to a **"silent recession"** that official statistics are not designed to capture.
+> The U-3 Unemployment Rate shows weak correlation with observed distress signals from entry-level and white-collar worker communities. From 2022–2026, while headline unemployment remained near historic lows, Reddit-based distress indicators increased substantially. The near-zero correlation between official rates and public sentiment (r ≈ 0.06), the persistent U6–U3 spread (~3.9pp), the deteriorating sentiment trajectory, and evidence of structural degree–job misalignment suggest that official statistics may not fully capture labor market challenges experienced by these demographics. These findings represent observed correlations and temporal patterns, not causal relationships.
 
 ---
 
@@ -167,7 +167,6 @@ All credentials are loaded from `secrets.json` (git-ignored):
 ```json
 {
     "FRED_API_KEY": "YOUR_FRED_KEY",
-    "BLS_API_KEY": "YOUR_BLS_KEY",
     "CENSUS_API_KEY": "YOUR_CENSUS_KEY",
     "REDDIT_CLIENT_ID": "YOUR_REDDIT_CLIENT_ID",
     "REDDIT_CLIENT_SECRET": "YOUR_REDDIT_CLIENT_SECRET",

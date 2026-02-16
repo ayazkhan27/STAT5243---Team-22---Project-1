@@ -298,8 +298,8 @@ def main():
                         "title":       clean_text(p.get("title", "")),
                         "selftext":    clean_text(p.get("selftext", "")),
                         "subreddit":   p.get("subreddit", sub_name),
-                        "created_utc": datetime.datetime.utcfromtimestamp(
-                            created_utc
+                        "created_utc": datetime.datetime.fromtimestamp(
+                            created_utc, tz=datetime.timezone.utc
                         ).strftime("%Y-%m-%d %H:%M:%S"),
                         "score":       p.get("score", 0),
                         "search_term": term,
