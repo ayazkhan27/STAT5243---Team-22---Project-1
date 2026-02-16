@@ -58,9 +58,9 @@ SUBREDDITS = [
     "csMajors",         # Tech-specific recession; CS degree holders struggling
 ]
 
-# Search terms — these are "distress signals" that indicate the reality
-# behind optimistic official numbers
-SEARCH_TERMS = [
+# Search terms — combining distress signals with positive signals for comparison
+# This addresses search term bias by capturing both negative and positive experiences
+SEARCH_TERMS_NEGATIVE = [
     # ── Original distress signals ────────────────────────────────────────
     "layoff",
     "unemployed",
@@ -76,6 +76,18 @@ SEARCH_TERMS = [
     "recession",                # macro-economic anxiety
     "cost of living",           # economic pressure even for employed workers
 ]
+
+# Positive search terms to control for search term bias
+SEARCH_TERMS_POSITIVE = [
+    "got a job",                # successful job acquisition
+    "hired",                    # successful hiring outcome
+    "offer accepted",           # job offer acceptance
+    "promotion",                # career advancement
+    "new job",                  # new employment
+]
+
+# Combine all search terms with sentiment labels
+SEARCH_TERMS = SEARCH_TERMS_NEGATIVE + SEARCH_TERMS_POSITIVE
 
 # Date range: Jan 2020 – Jan 2026 (as Unix timestamps for filtering)
 START_DATE = datetime.datetime(2020, 1, 1)
@@ -139,7 +151,44 @@ def clean_text(text):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# 4. HELPER: Search with retry and pagination
+# 4. HELPER: Get subreddit subscriber count
+# ─────────────────────────────────────────────────────────────────────────────
+def get_subreddit_subscribers(subreddit, headers):
+    """
+    Fetch current subscriber count for a subreddit via /about endpoint.
+    Returns subscriber count as int, or None if unavailable.
+    
+    Note: Reddit API only provides current subscriber counts, not historical data.
+    For proper normalization, historical subscriber data would need to be obtained
+    from external sources or cached over time.
+    """
+    url = f"https://oauth.reddit.com/r/{subreddit}/about"
+    
+    for attempt in range(MAX_RETRIES):
+        try:
+            resp = requests.get(url, headers=headers, timeout=15)
+            if resp.status_code == 200:
+                data = resp.json()
+                subscribers = data.get("data", {}).get("subscribers", None)
+                return subscribers
+            elif resp.status_code == 429:
+                # Rate limit hit
+                time.sleep(REQUEST_DELAY * BACKOFF_FACTOR ** attempt)
+                continue
+            else:
+                print(f"  ⚠ Failed to get subscribers for r/{subreddit}: {resp.status_code}")
+                return None
+        except Exception as e:
+            print(f"  ⚠ Error fetching subscribers for r/{subreddit}: {e}")
+            if attempt < MAX_RETRIES - 1:
+                time.sleep(REQUEST_DELAY * BACKOFF_FACTOR ** attempt)
+            else:
+                return None
+    return None
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# 5. HELPER: Search with retry and pagination
 # ─────────────────────────────────────────────────────────────────────────────
 def search_subreddit(subreddit, query, headers, sort="relevance",
                      limit=100, time_filter="all"):
@@ -233,6 +282,27 @@ def main():
     )
     print(f"  ✓ Token verified (status: {test_resp.status_code})")
 
+    # ── Fetch subreddit subscriber counts ────────────────────────────────
+    print("\nFetching current subscriber counts for normalization...")
+    subreddit_subscribers = {}
+    for sub in SUBREDDITS:
+        subscribers = get_subreddit_subscribers(sub, oauth_headers)
+        subreddit_subscribers[sub] = subscribers
+        if subscribers:
+            print(f"  ✓ r/{sub}: {subscribers:,} subscribers")
+        else:
+            print(f"  ⚠ r/{sub}: subscriber count unavailable")
+        time.sleep(REQUEST_DELAY)
+    
+    # Save subscriber counts to a separate file for reference
+    subscriber_df = pd.DataFrame([
+        {"subreddit": sub, "subscribers_current": count}
+        for sub, count in subreddit_subscribers.items()
+    ])
+    subscriber_path = os.path.join(OUTPUT_DIR, "subreddit_subscribers.csv")
+    subscriber_df.to_csv(subscriber_path, index=False)
+    print(f"  ✓ Subscriber counts saved to {subscriber_path}")
+
     # ── Calculate total iterations ───────────────────────────────────────
     # Now we loop years × subreddits × terms for time-balanced results
     total_queries = len(YEARS) * len(SUBREDDITS) * len(SEARCH_TERMS)
@@ -293,6 +363,9 @@ def main():
                     seen_ids.add(pid)
                     new_this_query += 1
 
+                    # Determine if term is positive or negative
+                    term_category = "positive" if term in SEARCH_TERMS_POSITIVE else "negative"
+                    
                     all_posts.append({
                         "post_id":     pid,
                         "title":       clean_text(p.get("title", "")),
@@ -303,6 +376,7 @@ def main():
                         ).strftime("%Y-%m-%d %H:%M:%S"),
                         "score":       p.get("score", 0),
                         "search_term": term,
+                        "term_category": term_category,
                     })
 
                 query_count += 1

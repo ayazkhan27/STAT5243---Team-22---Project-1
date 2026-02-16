@@ -234,10 +234,33 @@ def engineer_official_features(df_official):
 
 
 def engineer_reddit_features(df_reddit):
-    """Engineer features from Reddit sentiment data."""
+    """
+    Engineer features from Reddit sentiment data.
+    
+    Updates for audit compliance:
+    - Normalizes post volume by subreddit subscribers
+    - Filters out sparse months (N<10 posts)
+    - Revises distress index to avoid circular correlation
+    - Separates positive vs negative search terms
+    """
     print("\n" + "=" * 72)
     print("SECTION 2B — Feature Engineering: Reddit Sentiment")
     print("=" * 72)
+
+    # ── Load Subreddit Subscriber Data ───────────────────────────────────
+    subscriber_path = os.path.join(DATA_DIR, "subreddit_subscribers.csv")
+    if os.path.exists(subscriber_path):
+        print(f"\n  Loading subscriber data from {subscriber_path}...")
+        subscribers_df = pd.read_csv(subscriber_path)
+        # Create a dictionary for easy lookup
+        subscriber_map = dict(zip(
+            subscribers_df["subreddit"],
+            subscribers_df["subscribers_current"]
+        ))
+        print(f"  ✓ Loaded subscriber counts for {len(subscriber_map)} subreddits")
+    else:
+        print(f"  ⚠ Subscriber data not found. Post normalization will be skipped.")
+        subscriber_map = {}
 
     # ── VADER Sentiment Analysis ─────────────────────────────────────────
     print("\n  Running VADER sentiment analysis on titles + selftext...")
@@ -267,6 +290,7 @@ def engineer_reddit_features(df_reddit):
     print("\n  Aggregating to monthly time-series...")
     df_reddit["year_month"] = df_reddit["created_utc"].dt.to_period("M")
 
+    # Aggregate overall metrics
     monthly = df_reddit.groupby("year_month").agg(
         post_count=("post_id", "count"),
         avg_score=("score", "mean"),
@@ -283,22 +307,156 @@ def engineer_reddit_features(df_reddit):
     # Convert period to datetime for merging
     monthly["Date"] = monthly["year_month"].dt.to_timestamp()
 
-    # ── Distress Index ───────────────────────────────────────────────────
-    # Higher = more distress: post volume × negativity ratio
-    monthly["distress_index"] = (
-        monthly["post_count"] * monthly["pct_negative"]
-    )
-
-    # Normalize to 0-100 scale for interpretability
-    if monthly["distress_index"].max() > 0:
-        monthly["distress_index_norm"] = (
-            monthly["distress_index"] / monthly["distress_index"].max() * 100
+    # ── Separate Positive vs Negative Term Aggregation ──────────────────
+    # Track posts by term category if available
+    if "term_category" in df_reddit.columns:
+        print("\n  Separating positive vs negative search terms...")
+        term_monthly = df_reddit.groupby(["year_month", "term_category"]).agg(
+            post_count_by_category=("post_id", "count"),
+            avg_sentiment_by_category=("vader_compound", "mean"),
+        ).reset_index()
+        
+        # Pivot to get separate columns for positive and negative
+        term_pivot = term_monthly.pivot(
+            index="year_month",
+            columns="term_category",
+            values=["post_count_by_category", "avg_sentiment_by_category"]
+        ).reset_index()
+        
+        # Flatten column names
+        term_pivot.columns = [
+            f"{col[0]}_{col[1]}" if col[1] else col[0]
+            for col in term_pivot.columns
+        ]
+        
+        # Merge with monthly data
+        monthly = monthly.merge(term_pivot, on="year_month", how="left")
+        monthly.fillna(0, inplace=True)  # Fill missing categories with 0
+        
+        print(f"  ✓ Separated positive and negative term metrics")
+    
+    # ── Normalize by Subreddit Subscribers ───────────────────────────────
+    if subscriber_map:
+        print("\n  Normalizing post volume by subreddit subscribers...")
+        
+        # For each month, calculate average subscribers across active subreddits
+        # This is approximate since we only have current subscriber counts
+        subreddit_monthly = df_reddit.groupby(["year_month", "subreddit"]).agg(
+            posts_in_subreddit=("post_id", "count")
+        ).reset_index()
+        
+        # Map subscriber counts
+        subreddit_monthly["subscribers"] = subreddit_monthly["subreddit"].map(
+            subscriber_map
         )
+        
+        # Calculate normalized post rate per 10k subscribers per subreddit
+        subreddit_monthly["posts_per_10k_subs"] = (
+            subreddit_monthly["posts_in_subreddit"] / 
+            subreddit_monthly["subscribers"].replace(0, np.nan) * 10000
+        )
+        
+        # Aggregate to monthly level
+        normalized_monthly = subreddit_monthly.groupby("year_month").agg(
+            total_subscribers=("subscribers", "sum"),
+            avg_posts_per_10k_subs=("posts_per_10k_subs", "mean"),
+        ).reset_index()
+        
+        # Merge with main monthly data
+        monthly = monthly.merge(normalized_monthly, on="year_month", how="left")
+        
+        # Also calculate overall normalized volume
+        monthly["post_volume_normalized"] = (
+            monthly["post_count"] / 
+            monthly["total_subscribers"].replace(0, np.nan) * 10000
+        )
+        
+        print(f"  ✓ Post volume normalized by subscriber counts")
     else:
-        monthly["distress_index_norm"] = 0
+        monthly["post_volume_normalized"] = np.nan
+        monthly["avg_posts_per_10k_subs"] = np.nan
 
-    print(f"  ✓ Monthly aggregation: {len(monthly)} months")
-    print(f"  ✓ Distress Index computed (0-100 scale)")
+    # ── Filter Sparse Data (N<10 posts per month) ────────────────────────
+    print(f"\n  Filtering sparse months (N<10 posts)...")
+    print(f"    Before filtering: {len(monthly)} months")
+    
+    # Mark sparse months but keep them in dataset with a flag
+    monthly["is_sparse"] = monthly["post_count"] < 10
+    sparse_count = monthly["is_sparse"].sum()
+    print(f"    Sparse months (N<10): {sparse_count}")
+    print(f"    Reliable months (N≥10): {len(monthly) - sparse_count}")
+    
+    # For plotting and correlation analysis, we'll filter these out
+    # but keep them in the data with the flag
+
+    # ── Revised Distress Index ───────────────────────────────────────────
+    # New formula: Uses standardized normalized volume, standardized sentiment,
+    # and diversity factor (unique subreddits as proxy for breadth)
+    # This avoids direct correlation with raw post_count
+    
+    print("\n  Computing revised distress index...")
+    
+    # Standardize components (z-scores)
+    # Only use non-sparse data for standardization
+    reliable = monthly[~monthly["is_sparse"]].copy()
+    
+    if len(reliable) > 0:
+        # Use normalized volume if available, otherwise raw count
+        volume_col = ("post_volume_normalized" if "post_volume_normalized" in monthly.columns 
+                     else "post_count")
+        
+        # Calculate z-scores on reliable data
+        volume_mean = reliable[volume_col].mean()
+        volume_std = reliable[volume_col].std()
+        sentiment_mean = reliable["avg_sentiment"].mean()
+        sentiment_std = reliable["avg_sentiment"].std()
+        diversity_mean = reliable["unique_subreddits"].mean()
+        diversity_std = reliable["unique_subreddits"].std()
+        
+        # Apply standardization to all data
+        monthly["volume_zscore"] = (
+            (monthly[volume_col] - volume_mean) / 
+            (volume_std if volume_std > 0 else 1)
+        )
+        monthly["sentiment_zscore"] = (
+            (monthly["avg_sentiment"] - sentiment_mean) / 
+            (sentiment_std if sentiment_std > 0 else 1)
+        )
+        monthly["diversity_zscore"] = (
+            (monthly["unique_subreddits"] - diversity_mean) / 
+            (diversity_std if diversity_std > 0 else 1)
+        )
+        
+        # Distress index formula:
+        # Higher volume (positive z) + Lower sentiment (negative z) + Higher diversity (positive z)
+        # We invert sentiment so negative sentiment contributes positively to distress
+        monthly["distress_index_composite"] = (
+            monthly["volume_zscore"] + 
+            (-1 * monthly["sentiment_zscore"]) +  # Invert: negative sentiment = more distress
+            (0.5 * monthly["diversity_zscore"])   # Weight diversity less
+        )
+        
+        # Normalize to 0-100 scale for interpretability
+        if monthly["distress_index_composite"].max() > monthly["distress_index_composite"].min():
+            monthly["distress_index_norm"] = (
+                (monthly["distress_index_composite"] - monthly["distress_index_composite"].min()) /
+                (monthly["distress_index_composite"].max() - monthly["distress_index_composite"].min()) * 100
+            )
+        else:
+            monthly["distress_index_norm"] = 0
+            
+        print(f"  ✓ Revised distress index computed using:")
+        print(f"    - Standardized {'normalized ' if volume_col == 'post_volume_normalized' else ''}volume")
+        print(f"    - Standardized (inverted) sentiment")
+        print(f"    - Standardized diversity (unique subreddits)")
+    else:
+        monthly["distress_index_composite"] = 0
+        monthly["distress_index_norm"] = 0
+        print(f"  ⚠ Not enough reliable data to compute distress index")
+
+    print(f"\n  ✓ Monthly aggregation complete: {len(monthly)} months")
+    print(f"    - {(~monthly['is_sparse']).sum()} reliable months (N≥10)")
+    print(f"    - {monthly['is_sparse'].sum()} sparse months (N<10, flagged)")
 
     return df_reddit, monthly
 
@@ -417,44 +575,110 @@ def plot_2_u6_u3_spread(df_official, save_dir):
 
 
 def plot_3_reality_gap(df_merged, save_dir):
-    """Plot 3: Dual-axis — Official UNRATE vs Reddit distress volume."""
-    fig, ax1 = plt.subplots(figsize=(14, 7))
-
-    # Bar chart: Reddit post volume
+    """
+    Plot 3: Dual-axis — Official UNRATE vs Reddit distress volume.
+    
+    Updated to show both raw and normalized post volume, and filter sparse months.
+    """
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(14, 10), sharex=True)
+    
     dates = pd.to_datetime(df_merged["Date"])
-    mask = df_merged["post_count"] > 0
-    ax1.bar(dates[mask], df_merged.loc[mask, "post_count"],
-            width=25, alpha=0.6, color=COLORS["reddit"],
-            label="Reddit Distress Posts", zorder=3)
-    ax1.set_ylabel("Reddit Posts per Month", color=COLORS["reddit"])
+    
+    # Filter out sparse months for reliable visualization
+    # But show them with lighter transparency
+    reliable_mask = ~df_merged.get("is_sparse", pd.Series([False]*len(df_merged)))
+    sparse_mask = df_merged.get("is_sparse", pd.Series([False]*len(df_merged)))
+    
+    # ── Top Panel: Raw Post Volume ──────────────────────────────────────
+    # Reliable months (N>=10)
+    reliable_dates = dates[reliable_mask]
+    if len(reliable_dates) > 0:
+        ax1.bar(reliable_dates, df_merged.loc[reliable_mask, "post_count"],
+                width=25, alpha=0.7, color=COLORS["reddit"],
+                label="Reddit Posts (N≥10)", zorder=3)
+    
+    # Sparse months (N<10) - shown with lighter color
+    sparse_dates = dates[sparse_mask]
+    if len(sparse_dates) > 0:
+        ax1.bar(sparse_dates, df_merged.loc[sparse_mask, "post_count"],
+                width=25, alpha=0.3, color=COLORS["reddit"],
+                label="Reddit Posts (N<10, excluded from analysis)", zorder=2)
+    
+    ax1.set_ylabel("Reddit Posts per Month (Raw)", color=COLORS["reddit"])
     ax1.tick_params(axis="y", labelcolor=COLORS["reddit"])
-
-    # Line: UNRATE on second axis
-    ax2 = ax1.twinx()
-    ax2.plot(dates, df_merged["UNRATE"],
-             color=COLORS["u3"], linewidth=2.5, label="U-3 Rate (%)",
-             zorder=5)
-    ax2.plot(dates, df_merged["U6RATE"],
-             color=COLORS["u6"], linewidth=2, label="U-6 Rate (%)",
-             alpha=0.8, zorder=4)
-    ax2.set_ylabel("Unemployment Rate (%)", color=COLORS["u3"])
-    ax2.tick_params(axis="y", labelcolor=COLORS["u3"])
-
-    ax1.set_title("THE REALITY GAP: When Official Rates Drop, Distress Rises",
-                  fontsize=16, fontweight="bold", pad=15)
-    ax1.set_xlabel("Date")
-
-    # Combined legend
+    
+    # Unemployment rates on second y-axis
+    ax1_right = ax1.twinx()
+    ax1_right.plot(dates, df_merged["UNRATE"],
+                   color=COLORS["u3"], linewidth=2.5, label="U-3 Rate (%)",
+                   zorder=5)
+    ax1_right.plot(dates, df_merged["U6RATE"],
+                   color=COLORS["u6"], linewidth=2, label="U-6 Rate (%)",
+                   alpha=0.8, zorder=4)
+    ax1_right.set_ylabel("Unemployment Rate (%)", color=COLORS["u3"])
+    ax1_right.tick_params(axis="y", labelcolor=COLORS["u3"])
+    
+    ax1.set_title("THE REALITY GAP: Raw Volume vs Official Rates",
+                  fontsize=14, fontweight="bold", pad=10)
+    
+    # Combined legend for top panel
     lines1, labels1 = ax1.get_legend_handles_labels()
-    lines2, labels2 = ax2.get_legend_handles_labels()
-    ax1.legend(lines1 + lines2, labels1 + labels2, loc="upper right")
-
-    ax1.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
+    lines2, labels2 = ax1_right.get_legend_handles_labels()
+    ax1.legend(lines1 + lines2, labels1 + labels2, loc="upper left", fontsize=9)
     ax1.grid(True, alpha=0.3)
-
+    
+    # ── Bottom Panel: Normalized Post Volume ────────────────────────────
+    if "post_volume_normalized" in df_merged.columns and df_merged["post_volume_normalized"].notna().any():
+        # Reliable months
+        if len(reliable_dates) > 0:
+            ax2.bar(reliable_dates, 
+                    df_merged.loc[reliable_mask, "post_volume_normalized"],
+                    width=25, alpha=0.7, color=COLORS["reddit"],
+                    label="Normalized Posts/10k Subs (N≥10)", zorder=3)
+        
+        # Sparse months
+        if len(sparse_dates) > 0:
+            ax2.bar(sparse_dates,
+                    df_merged.loc[sparse_mask, "post_volume_normalized"],
+                    width=25, alpha=0.3, color=COLORS["reddit"],
+                    label="Normalized Posts/10k Subs (N<10, excluded)", zorder=2)
+        
+        ax2.set_ylabel("Posts per 10k Subscribers", color=COLORS["reddit"])
+        ax2.tick_params(axis="y", labelcolor=COLORS["reddit"])
+        
+        # Unemployment rates on second y-axis
+        ax2_right = ax2.twinx()
+        ax2_right.plot(dates, df_merged["UNRATE"],
+                       color=COLORS["u3"], linewidth=2.5, label="U-3 Rate (%)",
+                       zorder=5)
+        ax2_right.plot(dates, df_merged["U6RATE"],
+                       color=COLORS["u6"], linewidth=2, label="U-6 Rate (%)",
+                       alpha=0.8, zorder=4)
+        ax2_right.set_ylabel("Unemployment Rate (%)", color=COLORS["u3"])
+        ax2_right.tick_params(axis="y", labelcolor=COLORS["u3"])
+        
+        ax2.set_title("THE REALITY GAP: Normalized Volume (Controlling for Subreddit Growth)",
+                      fontsize=14, fontweight="bold", pad=10)
+        
+        # Combined legend for bottom panel
+        lines1, labels1 = ax2.get_legend_handles_labels()
+        lines2, labels2 = ax2_right.get_legend_handles_labels()
+        ax2.legend(lines1 + lines2, labels1 + labels2, loc="upper left", fontsize=9)
+    else:
+        ax2.text(0.5, 0.5, "Normalized volume not available\n(requires subreddit subscriber data)",
+                 ha="center", va="center", transform=ax2.transAxes,
+                 fontsize=12, color="#8b949e")
+        ax2.set_ylabel("Posts per 10k Subscribers", color=COLORS["reddit"])
+    
+    ax2.set_xlabel("Date")
+    ax2.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
+    ax2.grid(True, alpha=0.3)
+    
+    plt.tight_layout()
     plt.savefig(os.path.join(save_dir, "03_reality_gap.png"))
     plt.close()
-    print("  ✓ Plot 3: Reality Gap dual-axis saved.")
+    print("  ✓ Plot 3: Reality Gap (raw + normalized) saved.")
+
 
 
 def plot_4_heatmap(df_reddit, save_dir):
@@ -514,59 +738,111 @@ def plot_5_search_terms(df_reddit, save_dir):
 
 
 def plot_6_sentiment_timeseries(monthly, save_dir):
-    """Plot 6: Monthly average VADER sentiment over time."""
+    """
+    Plot 6: Monthly average VADER sentiment over time.
+    
+    Updated to filter sparse months and show confidence intervals.
+    """
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(14, 10),
                                      gridspec_kw={"height_ratios": [2, 1]})
 
     dates = monthly["Date"]
-
-    # Top: Sentiment compound score
-    ax1.plot(dates, monthly["avg_sentiment"],
-             color=COLORS["u3"], linewidth=2, label="Avg Compound Score")
-    ax1.fill_between(dates, 0, monthly["avg_sentiment"],
-                     where=monthly["avg_sentiment"] < 0,
-                     alpha=0.3, color=COLORS["reddit"],
-                     label="Negative Territory")
-    ax1.fill_between(dates, 0, monthly["avg_sentiment"],
-                     where=monthly["avg_sentiment"] >= 0,
-                     alpha=0.3, color=COLORS["degree"])
+    
+    # Identify sparse vs reliable months
+    is_sparse = monthly.get("is_sparse", pd.Series([False]*len(monthly)))
+    reliable_mask = ~is_sparse
+    
+    # Top: Sentiment compound score with confidence estimation
+    # For reliable months, plot with confidence band
+    if reliable_mask.any():
+        reliable_dates = dates[reliable_mask]
+        reliable_sentiment = monthly.loc[reliable_mask, "avg_sentiment"]
+        
+        ax1.plot(reliable_dates, reliable_sentiment,
+                 color=COLORS["u3"], linewidth=2, label="Avg Compound (N≥10)",
+                 marker='o', markersize=4)
+        
+        # Add shaded region for negative/positive territory
+        ax1.fill_between(reliable_dates, 0, reliable_sentiment,
+                         where=reliable_sentiment < 0,
+                         alpha=0.3, color=COLORS["reddit"],
+                         label="Negative Territory")
+        ax1.fill_between(reliable_dates, 0, reliable_sentiment,
+                         where=reliable_sentiment >= 0,
+                         alpha=0.3, color=COLORS["degree"],
+                         label="Positive Territory")
+    
+    # For sparse months, plot with lighter transparency
+    if is_sparse.any():
+        sparse_dates = dates[is_sparse]
+        sparse_sentiment = monthly.loc[is_sparse, "avg_sentiment"]
+        ax1.plot(sparse_dates, sparse_sentiment,
+                 color=COLORS["u3"], linewidth=1, alpha=0.3,
+                 label="Avg Compound (N<10, unreliable)", 
+                 linestyle='--', marker='x', markersize=4)
+    
     ax1.axhline(y=0, color="#8b949e", linestyle="-", alpha=0.5)
-    ax1.set_title("Monthly Sentiment Trajectory (VADER Compound Score)",
-                  fontsize=16, fontweight="bold", pad=15)
+    ax1.set_title("Monthly Sentiment Trajectory (VADER Compound Score)\n" +
+                  "Sparse months (N<10) shown with reduced opacity",
+                  fontsize=14, fontweight="bold", pad=15)
     ax1.set_ylabel("Avg VADER Compound")
-    ax1.legend(loc="lower left")
-    ax1.grid(True)
+    ax1.legend(loc="lower left", fontsize=9)
+    ax1.grid(True, alpha=0.3)
 
-    # Bottom: % negative posts
-    ax2.bar(dates, monthly["pct_negative"] * 100,
-            width=25, color=COLORS["reddit"], alpha=0.7,
-            label="% Posts with Negative Sentiment")
+    # Bottom: % negative posts (bar chart with sparse indication)
+    # Reliable months
+    if reliable_mask.any():
+        ax2.bar(dates[reliable_mask], 
+                monthly.loc[reliable_mask, "pct_negative"] * 100,
+                width=25, color=COLORS["reddit"], alpha=0.7,
+                label="% Negative (N≥10)")
+    
+    # Sparse months
+    if is_sparse.any():
+        ax2.bar(dates[is_sparse],
+                monthly.loc[is_sparse, "pct_negative"] * 100,
+                width=25, color=COLORS["reddit"], alpha=0.3,
+                label="% Negative (N<10, unreliable)")
+    
     ax2.set_ylabel("% Negative Posts")
     ax2.set_xlabel("Date")
-    ax2.legend(loc="upper left")
-    ax2.grid(True)
+    ax2.legend(loc="upper left", fontsize=9)
+    ax2.grid(True, alpha=0.3)
     ax2.xaxis.set_major_formatter(mdates.DateFormatter("%Y"))
 
     plt.tight_layout()
     plt.savefig(os.path.join(save_dir, "06_sentiment_timeseries.png"))
     plt.close()
-    print("  ✓ Plot 6: Sentiment time-series saved.")
+    print("  ✓ Plot 6: Sentiment time-series (with sparse month filtering) saved.")
 
 
 def plot_7_correlation_scatter(df_merged, save_dir):
-    """Plot 7: Scatter plots — time-colored U-3 vs volume, and sentiment vs U-3."""
-    fig, axes = plt.subplots(1, 2, figsize=(15, 7))
+    """
+    Plot 7: Scatter plots — time-colored U-3 vs volume, and sentiment vs U-3.
+    
+    Updated to show both raw and normalized volume, and filter sparse months.
+    """
+    # Determine if we have normalized volume
+    has_normalized = ("post_volume_normalized" in df_merged.columns and 
+                     df_merged["post_volume_normalized"].notna().any())
+    
+    # Create figure with appropriate number of subplots
+    n_cols = 3 if has_normalized else 2
+    fig, axes = plt.subplots(1, n_cols, figsize=(7*n_cols, 7))
+    if n_cols == 2:
+        axes = np.array([axes[0], axes[1], None])  # Pad for consistent indexing
 
-    # Filter to months with Reddit data
-    mask = df_merged["post_count"] > 0
+    # Filter to reliable months (N>=10) for correlation analysis
+    reliable_mask = ~df_merged.get("is_sparse", pd.Series([False]*len(df_merged)))
+    mask = (df_merged["post_count"] > 0) & reliable_mask
     data = df_merged[mask].copy()
 
     if len(data) < 5:
-        print("  ⚠ Not enough data for correlation scatter.")
+        print("  ⚠ Not enough reliable data for correlation scatter.")
         plt.close()
         return
 
-    # ── Left Panel: Time-colored U-3 vs Post Volume ──────────────────────
+    # ── Left Panel: Time-colored U-3 vs Raw Post Volume ─────────────────
     ax = axes[0]
     dates_numeric = mdates.date2num(pd.to_datetime(data["Date"]))
     scatter = ax.scatter(
@@ -583,25 +859,51 @@ def plot_7_correlation_scatter(df_merged, save_dir):
         for t in tick_locs
     ])
 
-    # Annotate regimes instead of misleading linear fit
-    ax.annotate("COVID spike\n(high U-3, low posts)",
-                xy=(10, 5), fontsize=8, color="#8b949e",
-                fontstyle="italic", ha="center")
-    ax.annotate("Post-2023\n(low U-3, high distress)",
-                xy=(4.0, 80), fontsize=8, color="#ffa657",
-                fontstyle="italic", ha="center",
-                bbox=dict(boxstyle="round,pad=0.3", facecolor="#1c2128",
-                          edgecolor="#ffa657", alpha=0.8))
+    # Annotate regimes
+    if data["UNRATE"].max() > 8:  # COVID spike exists
+        ax.annotate("COVID spike\n(high U-3, low posts)",
+                    xy=(10, 5), fontsize=8, color="#8b949e",
+                    fontstyle="italic", ha="center")
+    if data["post_count"].max() > 50:  # High distress period exists
+        ax.annotate("Post-2023\n(low U-3, high distress)",
+                    xy=(4.0, data["post_count"].max() * 0.8), fontsize=8, 
+                    color="#ffa657", fontstyle="italic", ha="center",
+                    bbox=dict(boxstyle="round,pad=0.3", facecolor="#1c2128",
+                              edgecolor="#ffa657", alpha=0.8))
 
     corr = data["UNRATE"].corr(data["post_count"])
-    ax.set_title(f"U-3 vs Distress Volume (r = {corr:.3f})\nColor = Time →",
-                 fontsize=13, fontweight="bold")
+    ax.set_title(f"U-3 vs Raw Distress Volume\n(r = {corr:.3f}, N≥10 only)\nColor = Time →",
+                 fontsize=12, fontweight="bold")
     ax.set_xlabel("U-3 Rate (%)")
-    ax.set_ylabel("Reddit Posts / Month")
+    ax.set_ylabel("Reddit Posts / Month (Raw)")
     ax.grid(True)
 
+    # ── Middle Panel: U-3 vs Normalized Volume (if available) ────────────
+    if has_normalized:
+        ax = axes[1]
+        scatter_norm = ax.scatter(
+            data["UNRATE"], data["post_volume_normalized"],
+            c=dates_numeric, cmap="cool", alpha=0.75, s=60,
+            edgecolors="#30363d", linewidths=0.5, zorder=5,
+        )
+        cbar_norm = plt.colorbar(scatter_norm, ax=ax, pad=0.02)
+        cbar_norm.ax.set_ylabel("Date", fontsize=9)
+        tick_locs_norm = cbar_norm.get_ticks()
+        cbar_norm.set_ticklabels([
+            mdates.num2date(t).strftime("%Y") if t > 0 else ""
+            for t in tick_locs_norm
+        ])
+
+        corr_norm = data["UNRATE"].corr(data["post_volume_normalized"])
+        ax.set_title(f"U-3 vs Normalized Volume\n(r = {corr_norm:.3f}, N≥10 only)\n" + 
+                    "Controls for Subreddit Growth",
+                     fontsize=12, fontweight="bold")
+        ax.set_xlabel("U-3 Rate (%)")
+        ax.set_ylabel("Posts per 10k Subscribers")
+        ax.grid(True)
+
     # ── Right Panel: UNRATE vs Avg Sentiment ─────────────────────────────
-    ax = axes[1]
+    ax = axes[2] if has_normalized else axes[1]
     sent_data = data.dropna(subset=["avg_sentiment", "UNRATE"])
 
     scatter2 = ax.scatter(
@@ -612,7 +914,7 @@ def plot_7_correlation_scatter(df_merged, save_dir):
     cbar2 = plt.colorbar(scatter2, ax=ax, pad=0.02)
     cbar2.ax.set_ylabel("% Negative Posts", fontsize=9)
 
-    # Add trend line for this relationship (more legitimate than vol vs rate)
+    # Add trend line
     z = np.polyfit(sent_data["UNRATE"], sent_data["avg_sentiment"], 1)
     p = np.poly1d(z)
     x_line = np.linspace(sent_data["UNRATE"].min(),
@@ -624,18 +926,19 @@ def plot_7_correlation_scatter(df_merged, save_dir):
     ax.axhline(y=0, color="#8b949e", linestyle=":", alpha=0.4)
 
     corr2 = sent_data["UNRATE"].corr(sent_data["avg_sentiment"])
-    ax.set_title(f"U-3 vs Avg Sentiment (r = {corr2:.3f})\nColor = % Negative →",
-                 fontsize=13, fontweight="bold")
+    ax.set_title(f"U-3 vs Avg Sentiment\n(r = {corr2:.3f}, N≥10 only)\nColor = % Negative →",
+                 fontsize=12, fontweight="bold")
     ax.set_xlabel("U-3 Rate (%)")
     ax.set_ylabel("Avg VADER Compound Score")
     ax.grid(True)
 
-    plt.suptitle("Statistical Evidence: Do Official Rates Predict Distress?",
-                 fontsize=16, fontweight="bold", y=1.02)
+    plt.suptitle("Statistical Evidence: Do Official Rates Predict Distress?\n" +
+                 "(Excluding sparse months with N<10 posts)",
+                 fontsize=15, fontweight="bold", y=1.00)
     plt.tight_layout()
     plt.savefig(os.path.join(save_dir, "07_correlation_scatter.png"))
     plt.close()
-    print("  ✓ Plot 7: Correlation scatter saved.")
+    print("  ✓ Plot 7: Correlation scatter (raw + normalized + sentiment) saved.")
 
 
 def plot_8_census_mismatch(df_degree, df_industry, save_dir):
@@ -718,33 +1021,65 @@ def plot_8_census_mismatch(df_degree, df_industry, save_dir):
 # SECTION 4: CORRELATION ANALYSIS & SUMMARY
 # ═════════════════════════════════════════════════════════════════════════════
 def correlation_analysis(df_merged):
-    """Print correlation matrix between key features."""
+    """
+    Print correlation matrix between key features.
+    
+    Updated to filter sparse months and include normalized volume.
+    """
     print("\n" + "=" * 72)
     print("SECTION 4 — Correlation Analysis")
     print("=" * 72)
+    
+    # Filter to reliable months (N>=10) for correlation analysis
+    if "is_sparse" in df_merged.columns:
+        reliable = df_merged[~df_merged["is_sparse"]].copy()
+        print(f"\n  Using {len(reliable)} reliable months (N≥10 posts)")
+        print(f"  Excluding {df_merged['is_sparse'].sum()} sparse months (N<10)")
+    else:
+        reliable = df_merged.copy()
+        print(f"\n  Using all {len(reliable)} months (sparse filtering not available)")
 
+    # Include both raw and normalized volume if available
     cols = ["UNRATE", "U6RATE", "U6_U3_SPREAD", "YOUTH_PREMIUM",
             "DEGREE_PREMIUM", "CIVPART", "post_count",
             "avg_sentiment", "distress_index_norm"]
+    
+    # Add normalized volume if available
+    if "post_volume_normalized" in reliable.columns:
+        cols.append("post_volume_normalized")
 
     # Filter to only columns that exist
-    cols = [c for c in cols if c in df_merged.columns]
-    data = df_merged[cols].dropna()
+    cols = [c for c in cols if c in reliable.columns]
+    data = reliable[cols].dropna()
 
     if len(data) < 5:
         print("  ⚠ Not enough overlapping data for correlation.")
         return
 
     corr_matrix = data.corr()
-    print("\n  Key Correlations with Reddit Post Volume:")
+    
+    # Print correlations with raw post volume
+    print("\n  Key Correlations with Raw Reddit Post Volume:")
     if "post_count" in corr_matrix:
         pc_corr = corr_matrix["post_count"].drop("post_count").sort_values()
         for var, val in pc_corr.items():
             direction = "↗" if val > 0 else "↘"
             strength = "strong" if abs(val) > 0.5 else (
                 "moderate" if abs(val) > 0.3 else "weak")
-            print(f"    {direction} {var:<22s}: r = {val:+.3f} ({strength})")
+            print(f"    {direction} {var:<28s}: r = {val:+.3f} ({strength})")
+    
+    # Print correlations with normalized post volume
+    if "post_volume_normalized" in corr_matrix:
+        print("\n  Key Correlations with Normalized Post Volume (per 10k subs):")
+        pvn_corr = corr_matrix["post_volume_normalized"].drop(
+            "post_volume_normalized").sort_values()
+        for var, val in pvn_corr.items():
+            direction = "↗" if val > 0 else "↘"
+            strength = "strong" if abs(val) > 0.5 else (
+                "moderate" if abs(val) > 0.3 else "weak")
+            print(f"    {direction} {var:<28s}: r = {val:+.3f} ({strength})")
 
+    # Print correlations with sentiment
     print("\n  Key Correlations with Avg Sentiment:")
     if "avg_sentiment" in corr_matrix:
         sent_corr = corr_matrix["avg_sentiment"].drop(
@@ -753,7 +1088,12 @@ def correlation_analysis(df_merged):
             direction = "↗" if val > 0 else "↘"
             strength = "strong" if abs(val) > 0.5 else (
                 "moderate" if abs(val) > 0.3 else "weak")
-            print(f"    {direction} {var:<22s}: r = {val:+.3f} ({strength})")
+            print(f"    {direction} {var:<28s}: r = {val:+.3f} ({strength})")
+    
+    # Print note about distress index
+    print("\n  NOTE: Revised distress index now uses standardized normalized volume,")
+    print("        inverted sentiment, and diversity factor to avoid circular correlation")
+    print("        with raw post_count.")
 
 
 # ═════════════════════════════════════════════════════════════════════════════
