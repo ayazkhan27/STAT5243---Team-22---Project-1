@@ -7,6 +7,12 @@ __pycache__/
 *.pyo
 .env
 
+# Testing
+.pytest_cache/
+*.coverage
+.coverage.*
+htmlcov/
+
 # Data outputs (optional — uncomment if datasets are too large for GitHub)
 # data/*.parquet
 # data/*.csv

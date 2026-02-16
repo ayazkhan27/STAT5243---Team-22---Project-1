@@ -82,15 +82,20 @@ Plotting U-3 vs. distress volume with **time-colored points** (Plot 7, left) rev
 ### Task C: Reddit API — Sentiment Time-Series
 
 | Subreddit | Signal |
+| Subreddit | Signal |
 |-----------|--------|
 | `r/layoffs` | Direct layoff announcements and firsthand experiences |
 | `r/jobs` | General job market sentiment — ghosting, rejections |
 | `r/recruitinghell` | Systemic failures in hiring — "100+ applications, 0 responses" |
 | `r/csMajors` | Tech-specific recession signal — CS degree holders struggling |
 
-**Search Terms** (12 queried, 5 effective): `entry level experience`, `job market`, `hundred applications`, `hiring freeze`, `cost of living` — plus 7 others queried but yielding no unique results: `layoff`, `unemployed`, `severance`, `ghosted`, `overqualified`, `no response`, `recession`
+**Search Terms — Negative (Distress Signals)**: `entry level experience`, `job market`, `hundred applications`, `hiring freeze`, `cost of living`, `layoff`, `unemployed`, `severance`, `ghosted`, `overqualified`, `no response`, `recession`
 
-**Time-Balanced Scraping**: Reddit's API is biased toward recent, high-engagement content. Without intervention, a search for "layoff" with `time_filter="all"` returns mostly 2024–2025 posts. To fix this, we iterate **year-by-year** using CloudSearch timestamp syntax (e.g., `"layoff timestamp:1577836800..1609459200"`), which forces Reddit to return the top posts *per year*. This produces 7 years × 4 subreddits × 12 terms = **336 queries** and a substantially more balanced temporal distribution.
+**Search Terms — Positive (Control for Bias)**: `got a job`, `hired`, `offer accepted`, `promotion`, `new job`
+
+These positive search terms were added to address potential search term bias. By comparing volume and sentiment for positive vs. negative keywords, we can distinguish between genuine labor market distress and general discussion activity.
+
+**Time-Balanced Scraping**: Reddit's API is biased toward recent, high-engagement content. Without intervention, a search for "layoff" with `time_filter="all"` returns mostly 2024–2025 posts. To fix this, we iterate **year-by-year** using CloudSearch timestamp syntax (e.g., `"layoff timestamp:1577836800..1609459200"`), which forces Reddit to return the top posts *per year*. This produces 7 years × 4 subreddits × 17 terms = **476 queries** and a substantially more balanced temporal distribution.
 
 ---
 
@@ -184,15 +189,47 @@ All credentials are loaded from `secrets.json` (git-ignored):
 
 ## 🛠️ Methodology
 
-### Feature Engineering (30 columns)
+### Feature Engineering
 
 | Category | Features |
 |----------|----------|
 | **Official Spreads** | U6–U3 Spread, Youth Premium, Degree Premium |
 | **Momentum** | Month-over-month changes, 3-month rolling averages, year-over-year change |
-| **Reddit Aggregates** | Monthly post count, avg/median score, total score |
+| **Reddit Aggregates** | Monthly post count (raw & normalized), avg/median score, total score |
 | **Sentiment** | VADER compound (avg, median), % negative, % positive |
-| **Composite** | Distress Index = post_count × pct_negative (normalized 0–100) |
+| **Search Term Categories** | Separate metrics for positive vs. negative search terms |
+| **Composite Distress Index** | Standardized normalized volume + inverted sentiment + diversity (0–100 scale) |
+
+### Volume Normalization (Addressing Subreddit Growth Bias)
+
+To control for the confounding effect of subreddit growth over time, post volumes are normalized:
+
+- **Raw Volume**: Monthly post count across all subreddits
+- **Normalized Volume**: Posts per 10,000 subscribers (using current subscriber counts from Reddit's `/about` endpoint)
+- **Rationale**: A subreddit growing from 10k to 100k subscribers naturally produces more posts even if per-capita distress remains constant
+
+### Sparse Data Treatment
+
+To ensure statistical reliability:
+
+- **Threshold**: Months with fewer than 10 posts are flagged as "sparse"
+- **Visualization**: Sparse months shown with reduced opacity in plots
+- **Analysis**: Excluded from correlation calculations and statistical summaries
+- **Rationale**: Small sample sizes (N<10) produce high-variance, unreliable sentiment averages
+
+### Revised Distress Index
+
+The composite distress index was redesigned to avoid circular correlation with raw post volume:
+
+**Formula**: `Distress = z(normalized_volume) + z(-sentiment) + 0.5×z(diversity)`
+
+Where:
+- `z(x)` = standardized z-score of variable x
+- `normalized_volume` = posts per 10k subscribers
+- `-sentiment` = inverted VADER compound (negative sentiment contributes positively to distress)
+- `diversity` = unique subreddits active per month (breadth of distress signal)
+
+This approach uses **independent standardization**, **normalized metrics**, and **composite signals** rather than directly multiplying correlated features.
 
 ### Sentiment Analysis
 
@@ -220,6 +257,8 @@ A transformer-based model (e.g., RoBERTa fine-tuned on employment forums) would 
 - Users who post about job struggles are self-selecting — people with good jobs rarely post
 - High-scoring posts are over-represented in API results even within timestamp-filtered queries
 - Subreddit growth over time (r/layoffs grew significantly from 2020→2026) naturally inflates post volume independent of actual distress levels
+  - **Mitigation**: Post volumes are now normalized by current subscriber counts to control for this effect
+  - **Limitation**: Reddit API only provides *current* subscriber counts, not historical data. Ideally, we would use month-by-month subscriber counts for precise normalization, but this data is unavailable via the API
 
 ---
 
