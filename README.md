@@ -19,7 +19,7 @@ Official unemployment metrics (U-3) understate the true severity of labor market
 
 ### Finding 1: The Core Gap Is Real
 
-From **2022 onward**, U-3 and U-6 flatten near historic lows (~3.5% and ~7%), yet Reddit distress posts **surge exponentially** — from ~10/month in 2021 to **263/month by late 2025**. The correlation between U-3 and distress volume is **negative** (r = −0.264): as official rates go *down*, distress goes *up*.
+From **2022 onward**, U-3 and U-6 flatten near historic lows (~3.5% and ~7%), yet Reddit distress posts **surge exponentially** — from ~1/month in early 2020 to **112/month by January 2026**. The correlation between U-3 and distress volume is **negative** (r = −0.252): as official rates go *down*, distress goes *up*.
 
 ### Finding 2: Youth Unemployment Diverges from the Headline
 
@@ -27,7 +27,7 @@ After the COVID recovery, U-3 settles around 3.5–4%, but youth unemployment (A
 
 ### Finding 3: The "Hidden Unemployed" Are Persistent
 
-The U6–U3 spread (measuring discouraged workers and involuntary part-timers excluded from the headline rate) hovers around **3.3–3.7 percentage points** throughout 2022–2026, representing ~3.5% of the labor force that is effectively unemployed but not counted. This spread has been *rising slightly* since 2024 even as U-3 stays flat.
+The U6–U3 spread (measuring discouraged workers and involuntary part-timers excluded from the headline rate) hovers around **3.0–4.0 percentage points** throughout 2022–2026 (mean 3.9pp), representing a persistent segment of the labor force that is effectively unemployed but not counted. This spread has been *rising slightly* since 2024 even as U-3 stays flat.
 
 ### Finding 4: Sentiment Is Deteriorating Over Time
 
@@ -35,28 +35,28 @@ VADER compound scores show a **downward trend** from 2020 to 2026. Average month
 
 ### Finding 5: Distress Is Broad-Based, Not Isolated
 
-All four subreddits light up simultaneously from late 2023 onward. Search terms are remarkably evenly distributed (255–385 posts each), meaning distress isn't driven by a single type of complaint — layoffs, ghosting, overqualification, hiring freezes, and the "hundreds of applications" phenomenon are all co-occurring.
+All four subreddits light up simultaneously from late 2023 onward. The five most effective search terms are remarkably evenly distributed (328–364 posts each), meaning distress isn't driven by a single type of complaint — entry-level experience paradoxes, job market frustration, cost of living concerns, hiring freezes, and the "hundreds of applications" phenomenon are all co-occurring.
 
 ### Finding 6: Structural Degree–Job Mismatch Exists
 
 ~7.5 million people aged 25–39 hold Science & Engineering degrees, but the matching employment sectors don't absorb them all. The largest hiring industries are healthcare and education services — not the STEM-adjacent industries these degrees target.
 
-### Finding 7: Two Regimes in the Scatter Plot
+### Finding 7: Two Regimes — Time-Colored Scatter Reveals Confound
 
-When U-3 was high (COVID, 8–14%), distress volume was paradoxically low. When U-3 sits at its lowest (3.5–4.5%), distress volume is at its **highest** (100–263 posts/month). This L-shaped pattern is the gap in its starkest statistical form.
+Plotting U-3 vs. distress volume with **time-colored points** (Plot 7, left) reveals two distinct regimes: during COVID (2020, cyan points), U-3 spiked to 8–14% but post volume was low (subreddits were small). Post-2023 (magenta points), U-3 sits at 3.5–4.5% while distress volume surges. The near-zero correlation between U-3 and **average sentiment** (r = +0.063, Plot 7, right) confirms that official unemployment explains almost none of the variance in public mood — the core "Reality Gap" thesis.
 
 ### Correlation Summary
 
 | Variable | vs Post Volume | vs Avg Sentiment |
 |----------|---------------|-----------------|
-| UNRATE (U-3) | r = −0.264 | r = +0.261 |
-| U6RATE | r = −0.249 | r = +0.265 |
-| CIVPART | r = +0.395 | r = −0.319 |
-| Distress Index | r = +0.991 | r = −0.167 |
+| UNRATE (U-3) | r = −0.252 | r = +0.063 |
+| U6RATE | r = −0.236 | r = +0.077 |
+| CIVPART | r = +0.380 | r = −0.018 |
+| Distress Index | r = +0.969 | r = −0.146 |
 
 ### Conclusion
 
-> The U-3 Unemployment Rate is failing as a measure of labor market health for entry-level and white-collar workers. From 2022–2026, while headline unemployment sits near historic lows, public distress has surged exponentially. The negative correlation between official rates and distress volume, the persistent U6–U3 spread, the deteriorating sentiment trajectory, and the structural degree–job mismatch all point to a **"silent recession"** that official statistics are not designed to capture.
+> The U-3 Unemployment Rate is failing as a measure of labor market health for entry-level and white-collar workers. From 2022–2026, while headline unemployment sits near historic lows, public distress has surged. The near-zero correlation between official rates and public sentiment (r ≈ 0.06), the persistent U6–U3 spread (~3.9pp), the deteriorating sentiment trajectory, and the structural degree–job mismatch all point to a **"silent recession"** that official statistics are not designed to capture.
 
 ---
 
@@ -88,7 +88,7 @@ When U-3 was high (COVID, 8–14%), distress volume was paradoxically low. When 
 | `r/recruitinghell` | Systemic failures in hiring — "100+ applications, 0 responses" |
 | `r/csMajors` | Tech-specific recession signal — CS degree holders struggling |
 
-**Search Terms** (12): `layoff`, `unemployed`, `severance`, `ghosted`, `hundred applications`, `hiring freeze`, `overqualified`, `entry level experience`, `no response`, `job market`, `recession`, `cost of living`
+**Search Terms** (12 queried, 5 effective): `entry level experience`, `job market`, `hundred applications`, `hiring freeze`, `cost of living` — plus 7 others queried but yielding no unique results: `layoff`, `unemployed`, `severance`, `ghosted`, `overqualified`, `no response`, `recession`
 
 **Time-Balanced Scraping**: Reddit's API is biased toward recent, high-engagement content. Without intervention, a search for "layoff" with `time_filter="all"` returns mostly 2024–2025 posts. To fix this, we iterate **year-by-year** using CloudSearch timestamp syntax (e.g., `"layoff timestamp:1577836800..1609459200"`), which forces Reddit to return the top posts *per year*. This produces 7 years × 4 subreddits × 12 terms = **336 queries** and a substantially more balanced temporal distribution.
 
@@ -101,7 +101,7 @@ STAT 5243/
 ├── data/
 │   ├── df_official.csv                  # Task A: FRED time-series (73 months × 5 series)
 │   ├── df_census_degree_mismatch.csv    # Task B: Census ACS snapshot (94 rows)
-│   ├── df_reddit_sentiment.csv          # Task C: 3,919 Reddit posts (primary)
+│   ├── df_reddit_sentiment.csv          # Task C: 1,700 Reddit posts (primary)
 │   ├── df_reddit_sentiment.parquet      # Task C: compressed backup
 │   ├── df_merged_features.csv           # EDA: merged monthly time-series (73 × 30 cols)
 │   ├── df_reddit_scored.csv             # EDA: Reddit posts with VADER sentiment scores
@@ -112,7 +112,7 @@ STAT 5243/
 │       ├── 04_heatmap.png              # Subreddit × month activity heatmap
 │       ├── 05_search_terms.png          # Distress keyword frequency
 │       ├── 06_sentiment_timeseries.png  # VADER compound + % negative over time
-│       ├── 07_correlation_scatter.png   # U-3 and U6-U3 spread vs distress volume
+│       ├── 07_correlation_scatter.png   # Time-colored U-3 vs volume + U-3 vs sentiment
 │       └── 08_census_mismatch.png       # Degrees earned vs industry employment
 ├── task_a_official_baseline.py          # FRED API extraction
 ├── task_b_census_demographics.py        # Census ACS extraction
