@@ -214,13 +214,16 @@ VADER (Valence Aware Dictionary and sEntiment Reasoner) is a lexicon-based tool 
 - **Domain-specific jargon** (e.g., "I got a severance package" may score neutral despite distress context)
 - **Long-form posts** where overall tone is mixed
 
-A transformer-based model (e.g., RoBERTa fine-tuned on employment forums) would improve accuracy but was outside the scope of this initial analysis.
+A transformer-based model (e.g., RoBERTa fine-tuned on employment forums or one of the latest HuggingFace models) would improve accuracy but was outside the scope of this initial analysis. Additionally, there is a new package known as spaCy that does a splendid job at NLP analysis which can be found here: https://huggingface.co/docs/hub/en/spacy. 
 
 ### Reddit Selection Bias
 - Reddit skews younger, more tech-literate, and more male than the general population
 - Users who post about job struggles are self-selecting — people with good jobs rarely post
 - High-scoring posts are over-represented in API results even within timestamp-filtered queries
 - Subreddit growth over time (r/layoffs grew significantly from 2020→2026) naturally inflates post volume independent of actual distress levels
+
+### Distress Index Collinearity
+Our composite **Distress Index** is calculated as `post_count × pct_negative`. While this effectively captures the total volume of negative sentiment, it introduces structural collinearity with raw post volume. The exceptionally high correlation observed between the Distress Index and Post Volume (r = +0.969) is largely a mathematical artifact of this formulation. Because post volume acts as a multiplier, the index is highly sensitive to overall subreddit population growth rather than just the intensity of user distress. Future iterations of this metric should mathematically decouple these variables—perhaps by relying strictly on sentiment ratios or normalizing volume against subreddit subscriber growth—to ensure the distress signal is not purely driven by baseline platform expansion.
 
 ---
 
